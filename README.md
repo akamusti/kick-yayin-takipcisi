@@ -32,9 +32,9 @@ Eklenti kodlarını düzenlemek veya yerel olarak test etmek isterseniz:
 
 1. Depoyu klonlayın:
    ```bash
-   git clone [https://github.com/insanmusti/kick-yayin-takipcisi.git](https://github.com/insanmusti/kick-yayin-takipcisi.git)
+    git clone [https://github.com/akamusti/kick-yayin-takipcisi.git](https://github.com/akamusti/kick-yayin-takipcisi.git)
 
 ---
 
 ## Chromium
-https://github.com/insanmusti/kick-takipci-chromium
+https://github.com/akamusti/kick-takipci-chromium
