@@ -540,7 +540,7 @@ h2 {
 
 .theme-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -548,6 +548,8 @@ h2 {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  overflow: hidden;
   background-color: var(--card-bg);
   border: 1px solid var(--card-border);
   border-radius: 6px;
@@ -579,9 +581,12 @@ h2 {
 }
 
 .theme-name {
+  flex: 1;
+  min-width: 0;
   font-size: 12px;
   font-weight: 600;
   color: var(--text);
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -593,6 +598,8 @@ h2 {
 
 .theme-check {
   margin-left: auto;
+  width: 14px;
+  text-align: center;
   color: var(--accent);
   font-size: 12px;
   font-weight: 700;
