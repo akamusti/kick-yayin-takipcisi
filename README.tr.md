@@ -19,15 +19,6 @@ https://addons.mozilla.org/en-US/firefox/addon/kick-live-stream-notifier/
 * **TR / EN + 6 tema:** Türkçe ve İngilizce arayüz, otomatik kaydedilen 6 renk teması.
 * **Hafif ve gizlilik odaklı:** Takip yok, üçüncü taraf sunucu yok. Sadece `kick.com` API ile konuşur. Veriler `storage.local` içinde kalır.
 
-## Kurulum (.xpi Dosyası İle)
-
-1. Bu depodaki veya **Releases** bölümündeki güncel **`.xpi`** dosyasını indir.
-2. Firefox'u aç.
-3. `about:addons` adresine git (veya `Ctrl + Shift + A`).
-4. Sağ üstteki **Çark (Ayarlar)** simgesine tıkla.
-5. **Dosyadan eklenti yükle...** seçeneğini seç.
-6. İndirdiğin `.xpi` dosyasını seçip **Ekle** ile onayla.
-
 ## Geliştirici Kurulumu (Kaynak Koddan)
 
 1. Depoyu klonla:
