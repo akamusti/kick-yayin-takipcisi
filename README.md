@@ -19,15 +19,6 @@ https://addons.mozilla.org/en-US/firefox/addon/kick-live-stream-notifier/
 * **TR / EN + 6 themes:** Turkish and English UI, 6 color themes saved automatically.
 * **Lightweight & private:** No tracking, no third-party servers. Only talks to `kick.com` API. Data stays in `storage.local`.
 
-## Install (.xpi file)
-
-1. Download the latest **`.xpi`** from this repo or the **Releases** section.
-2. Open Firefox.
-3. Go to `about:addons` (or press `Ctrl + Shift + A`).
-4. Click the **Gear (Settings)** icon in the top-right.
-5. Select **Install Add-on From File...**
-6. Pick the downloaded `.xpi` and confirm with **Add**.
-
 ## Developer setup (from source)
 
 1. Clone the repo:
