@@ -696,6 +696,13 @@ function renderChannelCard(container, item) {
     }
   }
 
+  // Kartın boş bir yerine tıklanınca da yayın açılsın (buton/link tıklamaları hariç)
+  card.classList.add("clickable");
+  card.addEventListener("click", (e) => {
+    if (e.target.closest("a, button")) return;
+    chrome.tabs.create({ url: `https://kick.com/${item.name}` });
+  });
+
   container.appendChild(card);
 }
 

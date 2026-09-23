@@ -215,6 +215,10 @@ h2 {
   padding: 8px 10px;
 }
 
+.channel-card.clickable {
+  cursor: pointer;
+}
+
 .channel-top {
   display: flex;
   align-items: center;
