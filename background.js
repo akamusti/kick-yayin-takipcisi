@@ -105,7 +105,7 @@ function setLiveBadgeTextColor(color) {
 // Yayın durumlarını paralel (hızlı) sorgulayan, rozeti güncelleyen ve bildirim gönderen ana fonksiyon
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
-const REQUEST_TIMEOUT_MS = 10000;
+const REQUEST_TIMEOUT_MS = 15000;
 
 // Kick API için yeniden denemeli fetch sarmalayıcı
 async function fetchWithRetry(url, attempt = 1) {
@@ -146,15 +146,20 @@ async function checkStreamsAndSetBadge() {
     }
 
     // İstekleri tek tek beklemek yerine Promise.all ile paralel atıyoruz (Hız artışı sağlar)
-    const requests = channels.map(async (channel) => {
+    const requests = channels.map(async (channel, index) => {
+      // Paralel istek patlaması Cloudflare'e takılmasın diye kademeli başlat
+      if (index > 0) {
+        await new Promise((r) => setTimeout(r, index * 300));
+      }
       try {
         const response = await fetchWithRetry(`https://kick.com/api/v1/channels/${channel}`);
         if (response.ok) {
           const result = await response.json();
           return { channel, ok: true, isLive: result.livestream !== null, result };
         }
+        console.warn(`${channel} API yanıtı alınamadı: HTTP ${response.status}`);
       } catch (e) {
-        console.error(`${channel} kontrol edilemedi:`, e);
+        console.error(`${channel} kontrol edilemedi:`, e?.name || typeof e, e?.message || e);
       }
       return { channel, ok: false, isLive: null, result: null };
     });
