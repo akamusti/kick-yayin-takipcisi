@@ -254,15 +254,23 @@ h2 {
   gap: 6px;
 }
 
-.live-block {
+.live-row {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border-top: 1px solid var(--card-border);
-  padding-top: 8px;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
 }
 
-.live-header {
+.live-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.live-top {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -292,11 +300,13 @@ h2 {
   flex-shrink: 0;
 }
 
-.live-body {
+.live-foot {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  min-width: 0;
+  border-top: 1px solid var(--card-border);
+  padding-top: 6px;
 }
 
 .live-thumb-wrap {
@@ -329,15 +339,6 @@ h2 {
   padding: 1px 5px;
   border-radius: 4px;
   pointer-events: none;
-}
-
-.live-text {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
 }
 
 .live-title {

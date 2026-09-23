@@ -61,7 +61,7 @@ function applySearchFilter() {
   let visibleCount = 0;
 
   cards.forEach((card) => {
-    const nameEl = card.querySelector(".channel-name");
+    const nameEl = card.querySelector(".channel-name, .live-name");
     const name = nameEl ? nameEl.textContent.toLowerCase() : "";
     const match = !searchQuery || name.includes(searchQuery);
     card.style.display = match ? "" : "none";
@@ -551,76 +551,17 @@ function renderChannelCard(container, item) {
   } else {
     const isLive = item.data.livestream !== null;
     const viewers = isLive ? item.data.livestream.viewer_count : 0;
-    const avatarUrl = item.data.user?.profile_pic || "../icon/icon.png";
-
-    const topDiv = document.createElement("div");
-    topDiv.className = "channel-top";
-
-    const leftDiv = document.createElement("div");
-    leftDiv.className = "channel-left";
-
-    const avatarImg = document.createElement("img");
-    avatarImg.className = "avatar";
-    avatarImg.src = avatarUrl;
-    avatarImg.alt = item.name;
-
-    const detailsDiv = document.createElement("div");
-    detailsDiv.className = "channel-details";
-
-    const channelLink = document.createElement("a");
-    channelLink.href = `https://kick.com/${item.name}`;
-    channelLink.target = "_blank";
-    channelLink.className = "channel-name";
-    channelLink.textContent = item.name;
-
-    const statusSpan = document.createElement("span");
-    statusSpan.className = `status ${isLive ? "live" : "offline"}`;
-    getSavedLang().then((lang) => {
-      statusSpan.textContent = isLive ? t("live", lang) : t("offline", lang);
-    });
-
-    detailsDiv.appendChild(channelLink);
-    detailsDiv.appendChild(statusSpan);
-
-    leftDiv.appendChild(avatarImg);
-    leftDiv.appendChild(detailsDiv);
-
-    topDiv.appendChild(leftDiv);
-    topDiv.appendChild(actionsDiv);
-
-    card.appendChild(topDiv);
 
     if (isLive) {
+      // Canlı kart: tek blok (referans görseldeki düzen, tekrar yok)
       card.classList.add("is-live");
       const displayName = item.data.user?.display_name || item.data.user?.username || item.name;
       const category = getStreamCategory(item.data.livestream);
       const thumbUrl = getStreamThumb(item.data.livestream);
       const duration = formatLiveDuration(item.data.livestream);
 
-      const liveDiv = document.createElement("div");
-      liveDiv.className = "live-block";
-
-      const liveHeader = document.createElement("div");
-      liveHeader.className = "live-header";
-
-      const nameLink = document.createElement("a");
-      nameLink.href = `https://kick.com/${item.name}`;
-      nameLink.target = "_blank";
-      nameLink.className = "live-name";
-      nameLink.textContent = displayName;
-
-      const viewersSpan = document.createElement("span");
-      viewersSpan.className = "live-viewers";
-      getSavedLang().then((lang) => {
-        viewersSpan.textContent = `🧑‍🤝‍🧑 ${formatViewerCount(viewers, lang)}`;
-      });
-
-      liveHeader.appendChild(nameLink);
-      liveHeader.appendChild(viewersSpan);
-      liveDiv.appendChild(liveHeader);
-
-      const liveBody = document.createElement("div");
-      liveBody.className = "live-body";
+      const liveRow = document.createElement("div");
+      liveRow.className = "live-row";
 
       if (thumbUrl) {
         const thumbWrap = document.createElement("a");
@@ -644,30 +585,99 @@ function renderChannelCard(container, item) {
           durBadge.textContent = duration;
           thumbWrap.appendChild(durBadge);
         }
-        liveBody.appendChild(thumbWrap);
+        liveRow.appendChild(thumbWrap);
       }
 
-      const liveText = document.createElement("div");
-      liveText.className = "live-text";
+      const liveMain = document.createElement("div");
+      liveMain.className = "live-main";
+
+      const liveTop = document.createElement("div");
+      liveTop.className = "live-top";
+
+      const nameLink = document.createElement("a");
+      nameLink.href = `https://kick.com/${item.name}`;
+      nameLink.target = "_blank";
+      nameLink.className = "live-name";
+      nameLink.textContent = displayName;
+
+      const viewersSpan = document.createElement("span");
+      viewersSpan.className = "live-viewers";
+      getSavedLang().then((lang) => {
+        viewersSpan.textContent = `\u{1F465} ${formatViewerCount(viewers, lang)}`;
+      });
+
+      liveTop.appendChild(nameLink);
+      liveTop.appendChild(viewersSpan);
+      liveMain.appendChild(liveTop);
 
       const titleSpan = document.createElement("span");
       titleSpan.className = "live-title";
       titleSpan.textContent = item.data.livestream?.session_title || item.name;
       titleSpan.title = titleSpan.textContent;
-      liveText.appendChild(titleSpan);
+      liveMain.appendChild(titleSpan);
 
       if (category) {
         const catSpan = document.createElement("span");
         catSpan.className = "live-category";
         catSpan.textContent = category;
         catSpan.title = category;
-        liveText.appendChild(catSpan);
+        liveMain.appendChild(catSpan);
       }
 
-      liveBody.appendChild(liveText);
-      liveDiv.appendChild(liveBody);
+      liveRow.appendChild(liveMain);
+      card.appendChild(liveRow);
 
-      card.appendChild(liveDiv);
+      const liveFoot = document.createElement("div");
+      liveFoot.className = "live-foot";
+
+      const statusSpan = document.createElement("span");
+      statusSpan.className = "status live";
+      getSavedLang().then((lang) => {
+        statusSpan.textContent = `\u25CF ${t("live", lang)}`;
+      });
+
+      liveFoot.appendChild(statusSpan);
+      liveFoot.appendChild(actionsDiv);
+      card.appendChild(liveFoot);
+    } else {
+      const avatarUrl = item.data.user?.profile_pic || "../icon/icon.png";
+
+      const topDiv = document.createElement("div");
+      topDiv.className = "channel-top";
+
+      const leftDiv = document.createElement("div");
+      leftDiv.className = "channel-left";
+
+      const avatarImg = document.createElement("img");
+      avatarImg.className = "avatar";
+      avatarImg.src = avatarUrl;
+      avatarImg.alt = item.name;
+
+      const detailsDiv = document.createElement("div");
+      detailsDiv.className = "channel-details";
+
+      const channelLink = document.createElement("a");
+      channelLink.href = `https://kick.com/${item.name}`;
+      channelLink.target = "_blank";
+      channelLink.className = "channel-name";
+      channelLink.textContent = item.name;
+
+      const statusSpan = document.createElement("span");
+      statusSpan.className = "status offline";
+      getSavedLang().then((lang) => {
+        statusSpan.textContent = t("offline", lang);
+      });
+
+      detailsDiv.appendChild(channelLink);
+      detailsDiv.appendChild(statusSpan);
+
+      leftDiv.appendChild(avatarImg);
+      leftDiv.appendChild(detailsDiv);
+
+      topDiv.appendChild(leftDiv);
+      topDiv.appendChild(actionsDiv);
+
+      card.appendChild(topDiv);
     }
   }
 
