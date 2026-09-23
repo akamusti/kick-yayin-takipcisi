@@ -437,6 +437,44 @@ async function removeChannel(channelName) {
   chrome.runtime.sendMessage({ action: "updateBadge" });
 }
 
+function getStreamCategory(livestream) {
+  const cats = livestream?.categories;
+  if (Array.isArray(cats) && cats.length > 0 && cats[0]?.name) {
+    return cats[0].name;
+  }
+  return "";
+}
+
+function getStreamThumb(livestream) {
+  const thumb = livestream?.thumbnail;
+  if (!thumb) return "";
+  if (typeof thumb === "string") return thumb;
+  return thumb.src || "";
+}
+
+function formatViewerCount(count, lang) {
+  const n = Number(count) || 0;
+  try {
+    return n.toLocaleString(lang === "tr" ? "tr-TR" : "en-US");
+  } catch (e) {
+    return String(n);
+  }
+}
+
+function formatLiveDuration(livestream) {
+  const start = livestream?.start_time || livestream?.created_at || livestream?.startTime;
+  if (!start) return "";
+  const startMs = Date.parse(String(start).replace(" ", "T"));
+  if (Number.isNaN(startMs)) return "";
+  let diff = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+  const h = Math.floor(diff / 3600);
+  diff -= h * 3600;
+  const m = Math.floor(diff / 60);
+  const s = diff - m * 60;
+  const pad = (v) => String(v).padStart(2, "0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
 function renderChannelCard(container, item) {
   const card = document.createElement("div");
   card.className = "channel-card";
@@ -538,7 +576,7 @@ function renderChannelCard(container, item) {
     const statusSpan = document.createElement("span");
     statusSpan.className = `status ${isLive ? "live" : "offline"}`;
     getSavedLang().then((lang) => {
-      statusSpan.textContent = isLive ? t("live_with_viewers", lang).replace("{viewers}", viewers) : t("offline", lang);
+      statusSpan.textContent = isLive ? t("live", lang) : t("offline", lang);
     });
 
     detailsDiv.appendChild(channelLink);
@@ -553,27 +591,83 @@ function renderChannelCard(container, item) {
     card.appendChild(topDiv);
 
     if (isLive) {
-      const streamDiv = document.createElement("div");
-      streamDiv.className = "stream-info";
+      card.classList.add("is-live");
+      const displayName = item.data.user?.display_name || item.data.user?.username || item.name;
+      const category = getStreamCategory(item.data.livestream);
+      const thumbUrl = getStreamThumb(item.data.livestream);
+      const duration = formatLiveDuration(item.data.livestream);
 
-      const thumbUrl = item.data.livestream?.thumbnail;
+      const liveDiv = document.createElement("div");
+      liveDiv.className = "live-block";
+
+      const liveHeader = document.createElement("div");
+      liveHeader.className = "live-header";
+
+      const nameLink = document.createElement("a");
+      nameLink.href = `https://kick.com/${item.name}`;
+      nameLink.target = "_blank";
+      nameLink.className = "live-name";
+      nameLink.textContent = displayName;
+
+      const viewersSpan = document.createElement("span");
+      viewersSpan.className = "live-viewers";
+      getSavedLang().then((lang) => {
+        viewersSpan.textContent = `🧑‍🤝‍🧑 ${formatViewerCount(viewers, lang)}`;
+      });
+
+      liveHeader.appendChild(nameLink);
+      liveHeader.appendChild(viewersSpan);
+      liveDiv.appendChild(liveHeader);
+
+      const liveBody = document.createElement("div");
+      liveBody.className = "live-body";
+
       if (thumbUrl) {
+        const thumbWrap = document.createElement("a");
+        thumbWrap.href = `https://kick.com/${item.name}`;
+        thumbWrap.target = "_blank";
+        thumbWrap.className = "live-thumb-wrap";
+
         const thumbImg = document.createElement("img");
-        thumbImg.className = "stream-thumb";
+        thumbImg.className = "live-thumb";
         thumbImg.src = thumbUrl;
         thumbImg.alt = "";
+        thumbImg.loading = "lazy";
         thumbImg.addEventListener("error", () => {
-          thumbImg.remove();
+          thumbWrap.remove();
         });
-        streamDiv.appendChild(thumbImg);
+        thumbWrap.appendChild(thumbImg);
+
+        if (duration) {
+          const durBadge = document.createElement("span");
+          durBadge.className = "live-duration";
+          durBadge.textContent = duration;
+          thumbWrap.appendChild(durBadge);
+        }
+        liveBody.appendChild(thumbWrap);
       }
 
-      const titleSpan = document.createElement("span");
-      titleSpan.className = "stream-title";
-      titleSpan.textContent = item.data.livestream?.session_title || item.name;
-      streamDiv.appendChild(titleSpan);
+      const liveText = document.createElement("div");
+      liveText.className = "live-text";
 
-      card.appendChild(streamDiv);
+      const titleSpan = document.createElement("span");
+      titleSpan.className = "live-title";
+      titleSpan.textContent = item.data.livestream?.session_title || item.name;
+      titleSpan.title = titleSpan.textContent;
+      liveText.appendChild(titleSpan);
+
+      if (category) {
+        const catSpan = document.createElement("span");
+        catSpan.className = "live-category";
+        catSpan.textContent = category;
+        catSpan.title = category;
+        liveText.appendChild(catSpan);
+      }
+
+      liveBody.appendChild(liveText);
+      liveDiv.appendChild(liveBody);
+
+      card.appendChild(liveDiv);
     }
   }
 
