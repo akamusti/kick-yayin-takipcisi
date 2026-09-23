@@ -594,6 +594,20 @@ function renderChannelCard(container, item) {
       const liveTop = document.createElement("div");
       liveTop.className = "live-top";
 
+      const avatarImg = document.createElement("img");
+      avatarImg.className = "live-avatar";
+      avatarImg.src = item.data.user?.profile_pic || "../icon/icon.png";
+      avatarImg.alt = "";
+      avatarImg.loading = "lazy";
+      avatarImg.addEventListener("error", () => {
+        if (!avatarImg.dataset.fallback) {
+          avatarImg.dataset.fallback = "1";
+          avatarImg.src = "../icon/icon.png";
+        } else {
+          avatarImg.remove();
+        }
+      });
+
       const nameLink = document.createElement("a");
       nameLink.href = `https://kick.com/${item.name}`;
       nameLink.target = "_blank";
@@ -606,6 +620,7 @@ function renderChannelCard(container, item) {
         viewersSpan.textContent = `\u{1F465} ${formatViewerCount(viewers, lang)}`;
       });
 
+      liveTop.appendChild(avatarImg);
       liveTop.appendChild(nameLink);
       liveTop.appendChild(viewersSpan);
       liveMain.appendChild(liveTop);

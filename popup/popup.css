@@ -272,13 +272,24 @@ h2 {
 
 .live-top {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
 }
 
+.live-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--input-border);
+}
+
 .live-name {
+  flex: 1;
+  min-width: 0;
   color: var(--text);
   font-weight: 700;
   font-size: 13px;
