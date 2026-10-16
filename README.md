@@ -11,7 +11,12 @@ https://addons.mozilla.org/en-US/firefox/addon/kick-live-stream-notifier/
 
 * **Live badge:** Toolbar icon shows how many tracked streamers are live, no need to open the popup.
 * **Instant notifications:** System notification with streamer avatar and stream title. Click it to open the stream.
-* **Fast & parallel checks:** Checks all channels in parallel every minute via alarms.
+* **Check now:** Trigger a check yourself; badge, notifications and list refresh immediately.
+* **Fast & parallel checks:** Checks all channels in parallel via alarms.
+* **Check interval:** Pick a 1, 2, 5 or 10 minute interval (saves battery and data).
+* **Mute channels:** One click silences a channel's notifications; it still shows as live in the list.
+* **Notification sound:** Choose default, chime, or silent.
+* **Stats:** Overview of tracked channels, live count, total viewers and the most watched stream.
 * **Search, pin & sort:** Search your list, pin favorites to the top, live streams first.
 * **Suggested channels:** Optional discover list you can add or dismiss with one click.
 * **Notification hours:** Only get notified in a time window you choose (e.g. 10:00 to 23:00).

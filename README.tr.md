@@ -11,7 +11,12 @@ https://addons.mozilla.org/en-US/firefox/addon/kick-live-stream-notifier/
 
 * **Canlı rozeti:** Kaç yayıncının canlıda olduğunu araç çubuğu simgesinde gösterir, popup'ı açmana gerek yok.
 * **Anlık bildirimler:** Yayıncı avatarı ve yayın başlığıyla sistem bildirimi. Tıkla, yayını aç.
-* **Hızlı ve paralel kontrol:** Tüm kanalları her dakika paralel isteklerle kontrol eder.
+* **Şimdi kontrol et:** Beklemeden elle kontrol başlat; rozet, bildirim ve liste anında güncellenir.
+* **Hızlı ve paralel kontrol:** Tüm kanalları paralel isteklerle kontrol eder.
+* **Kontrol sıklığı:** 1, 2, 5 veya 10 dakikalık kontrol aralığı seç (pil ve veri tasarrufu).
+* **Kanalları sustur:** Tek tıkla bir kanalın bildirimlerini kapat; kanal listede canlı görünmeye devam eder.
+* **Bildirim sesi:** Varsayılan, zil sesi veya sessiz mod arasından seç.
+* **İstatistikler:** Takip edilen, canlı, toplam izleyici ve en çok izlenen yayın özeti.
 * **Arama, sabitleme ve sıralama:** Listende ara, favorileri üste sabitle, canlılar en üstte.
 * **Önerilen kanallar:** Tek tıkla ekleyip kapatabileceğin isteğe bağlı keşfet listesi.
 * **Bildirim saat aralığı:** Sadece seçtiğin saatlerde bildirim al (örn. 10:00 ile 23:00 arası).

@@ -93,6 +93,7 @@ kurallar her yeni işte aynı işletilir.
 | `manifest.json` | MV3 manifest — sürümü yalnızca istenirse yükselt |
 | `background.js` | Alarm, kontrol, bildirim mantığı |
 | `popup/` | Arayüz: `popup.js`, `popup.html`, `popup.css`, `i18n.js` (TR/EN), `themes.js`, `suggestions.js` |
+| `sounds/` | Bildirim zil sesi (`notify.wav`) — yerel olarak üretildi, dışarıdan indirilmedi |
 | `icon/` | Eklenti ikonu |
 | `.env` | Gizli değerler — **yok burada, olmayacak da**; gerekiirse yerel olarak oluştur, ignore et |
 | `.env.example` | Değer yerine placeholder — commit edilebilir |
