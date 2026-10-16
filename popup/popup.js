@@ -8,8 +8,21 @@ const INTERVAL_OPTIONS = [1, 2, 5, 10];
 const DEFAULT_CHECK_INTERVAL = 1;
 const SOUND_OPTIONS = ["system", "chime", "silent"];
 
-const BELL_ICON = '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>';
-const BELL_OFF_ICON = '<svg viewBox="0 0 24 24"><path d="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68c-.15.03-.29.08-.42.12-.1.03-.2.07-.3.11h-.01c-.01 0-.01 0-.02.01-.23.09-.46.2-.68.31 0 0-.01 0-.01.01L18 14.68z"/></svg>';
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+const BELL_PATH = "M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z";
+const BELL_OFF_PATH = "M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68c-.15.03-.29.08-.42.12-.1.03-.2.07-.3.11h-.01c-.01 0-.01 0-.02.01-.23.09-.46.2-.68.31 0 0-.01 0-.01.01L18 14.68z";
+const PIN_PATH = "M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z";
+
+// SVG ikonunu DOM ile üretir; HTML metni enjekte edilmez (AMO linter uyarısı)
+function createSvgIcon(pathData) {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  const path = document.createElementNS(SVG_NS, "path");
+  path.setAttribute("d", pathData);
+  svg.appendChild(path);
+  return svg;
+}
 
 document.addEventListener("DOMContentLoaded", async () => {
   await restoreLang();
@@ -536,7 +549,7 @@ async function renderStats() {
 function applyMuteState(btn, card, isMuted, lang) {
   if (!btn) return;
   btn.classList.toggle("muted", isMuted);
-  btn.innerHTML = isMuted ? BELL_OFF_ICON : BELL_ICON;
+  btn.replaceChildren(createSvgIcon(isMuted ? BELL_OFF_PATH : BELL_PATH));
   btn.title = t(isMuted ? "unmute" : "mute", lang);
   if (card) card.classList.toggle("muted", isMuted);
 }
@@ -816,7 +829,7 @@ function renderChannelCard(container, item) {
   const pinBtn = document.createElement("button");
   pinBtn.className = "pin-btn";
   pinBtn.type = "button";
-  pinBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z"/></svg>';
+  pinBtn.replaceChildren(createSvgIcon(PIN_PATH));
 
   chrome.storage.local.get(["pinnedChannels"]).then((pData) => {
     const pinned = (pData.pinnedChannels || []).includes(item.name);

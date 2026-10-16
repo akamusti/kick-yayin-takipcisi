@@ -23,9 +23,9 @@
     "default_icon": "icon/icon.png"
   },
   "icons": {
-    "16": "icon/icon.png",
-    "48": "icon/icon.png",
-    "128": "icon/icon.png"
+    "16": "icon/icon16.png",
+    "48": "icon/icon48.png",
+    "128": "icon/icon128.png"
   },
   "browser_specific_settings": {
     "gecko": {
