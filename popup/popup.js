@@ -746,8 +746,13 @@ function renderSuggestionCard(container, item) {
   actionsDiv.appendChild(addBtn);
   actionsDiv.appendChild(dismissBtn);
 
-  card.appendChild(leftDiv);
-  card.appendChild(actionsDiv);
+  // İsim ve butonlar tek satırda dursun (kanal kartlarındaki .channel-top ile aynı)
+  const topDiv = document.createElement("div");
+  topDiv.className = "channel-top";
+  topDiv.appendChild(leftDiv);
+  topDiv.appendChild(actionsDiv);
+
+  card.appendChild(topDiv);
   container.appendChild(card);
 }
 
