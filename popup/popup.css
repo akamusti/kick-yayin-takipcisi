@@ -865,3 +865,190 @@ h2 {
   fill: var(--muted);
   flex-shrink: 0;
 }
+
+/* Manuel kontrol satırı */
+.refresh-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  background-color: var(--card-bg);
+  color: var(--text);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.refresh-btn:hover {
+  border-color: var(--accent);
+  background-color: var(--tab-active-bg);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.refresh-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.refresh-btn.spinning svg {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.refresh-status {
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+  min-height: 12px;
+  word-break: break-word;
+}
+
+.refresh-status.success {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.refresh-status.error {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+/* Ayarlardaki açılır seçim kutuları */
+.setting-select {
+  flex: 0 0 108px;
+  padding: 5px 6px;
+}
+
+/* Susturma butonu */
+.mute-btn {
+  background-color: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.mute-btn:hover {
+  color: var(--text);
+  background-color: rgba(127, 127, 127, 0.15);
+}
+
+.mute-btn.muted {
+  color: var(--danger);
+}
+
+.mute-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.channel-card.muted {
+  opacity: 0.72;
+}
+
+.channel-card.muted .status.live {
+  color: var(--muted);
+}
+
+/* İstatistik paneli */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 10px 8px;
+}
+
+.stat-card-live {
+  border-color: var(--accent);
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+}
+
+.stat-card-live .stat-value {
+  color: var(--accent);
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.stat-top {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.stat-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  padding: 6px 9px;
+}
+
+.stat-info-value {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+}

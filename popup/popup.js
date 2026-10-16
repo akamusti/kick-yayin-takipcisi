@@ -1,5 +1,15 @@
 let channelResults = [];
 let searchQuery = "";
+let mutedChannelsCache = [];
+let statusResetTimer = null;
+
+// Kontrol sıklığı ve bildirim sesi seçenekleri (background.js ile aynı olmalı)
+const INTERVAL_OPTIONS = [1, 2, 5, 10];
+const DEFAULT_CHECK_INTERVAL = 1;
+const SOUND_OPTIONS = ["system", "chime", "silent"];
+
+const BELL_ICON = '<svg viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>';
+const BELL_OFF_ICON = '<svg viewBox="0 0 24 24"><path d="M20 18.69L7.84 6.14 5.27 3.49 4 4.76l2.8 2.8v.01c-.52.99-.8 2.16-.8 3.42v5l-2 2v1h13.73l2 2L21 19.72l-1-1.03zM12 22c1.11 0 2-.89 2-2h-4c0 1.11.89 2 2 2zm6-7.32V11c0-3.08-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68c-.15.03-.29.08-.42.12-.1.03-.2.07-.3.11h-.01c-.01 0-.01 0-.02.01-.23.09-.46.2-.68.31 0 0-.01 0-.01.01L18 14.68z"/></svg>';
 
 document.addEventListener("DOMContentLoaded", async () => {
   await restoreLang();
@@ -15,6 +25,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   setupNotificationTest();
   setupSearch();
   setupBackup();
+  setupRefresh();
+  await setupIntervalSelect();
+  await setupSoundSelect();
   loadChannels();
   chrome.runtime.sendMessage({ action: "updateBadge" });
 
@@ -82,13 +95,18 @@ function applySearchFilter() {
   }
 }
 
-function setupTabs() {  const tabs = document.querySelectorAll(".tab-btn");
+function setupTabs() {
+  const tabs = document.querySelectorAll(".tab-btn");
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
       tabs.forEach((t) => t.classList.toggle("active", t === tab));
       document.querySelectorAll(".panel").forEach((panel) => {
         panel.classList.toggle("active", panel.id === tab.dataset.panel);
       });
+      // İstatistik sekmesine geçildiğinde güncel sayıları hazırla
+      if (tab.dataset.panel === "panel-stats") {
+        renderStats();
+      }
     });
   });
 }
@@ -104,9 +122,18 @@ function setupLangButtons(currentLang) {
       buttons.forEach((b) => b.classList.toggle("selected", b.dataset.lang === lang));
       await restoreTheme();
       setupThemeGrid();
+      await refreshStaticTexts();
       loadChannels();
     });
   });
+}
+
+// Dil değiştiğinde dinamik oluşturulan metinleri yenile
+async function refreshStaticTexts() {
+  await setupIntervalSelect();
+  await setupSoundSelect();
+  await updateRefreshStatus();
+  renderStats();
 }
 
 async function setupThemeGrid() {
@@ -221,13 +248,307 @@ function setupNotificationTest() {
   });
 }
 
+// ---- Manuel kontrol ("Şimdi Kontrol Et") ----
+function setupRefresh() {
+  const btn = document.getElementById("refresh-btn");
+  const statsBtn = document.getElementById("stats-refresh-btn");
+  if (btn) btn.addEventListener("click", () => manualRefresh(btn));
+  if (statsBtn) statsBtn.addEventListener("click", () => manualRefresh(statsBtn));
+  updateRefreshStatus();
+}
+
+async function manualRefresh(btn) {
+  if (btn && btn.disabled) return;
+  const lang = await getSavedLang();
+
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add("spinning");
+  }
+  setRefreshStatus(t("refreshing", lang), "info");
+
+  try {
+    // Arka plandaki kontrolü bekle: rozet, bildirimler ve canlı durumları güncellenir
+    const summary = await chrome.runtime.sendMessage({ action: "checkNow" });
+    await loadChannels();
+
+    if (summary && !summary.error) {
+      if (summary.total > 0) {
+        setRefreshStatus(
+          t("refresh_done", lang)
+            .replace("{live}", summary.live)
+            .replace("{total}", summary.total),
+          "success"
+        );
+      } else {
+        setRefreshStatus(t("refresh_empty", lang), "info");
+      }
+    } else {
+      setRefreshStatus(t("refresh_failed", lang), "error");
+    }
+  } catch (e) {
+    console.error("Manuel kontrol başarısız:", e);
+    setRefreshStatus(t("refresh_failed", lang), "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove("spinning");
+    }
+    scheduleStatusReset();
+  }
+}
+
+function setRefreshStatus(text, kind) {
+  const el = document.getElementById("refresh-status");
+  if (!el) return;
+  el.textContent = text;
+  el.classList.remove("success", "error");
+  if (kind === "success") el.classList.add("success");
+  if (kind === "error") el.classList.add("error");
+}
+
+function scheduleStatusReset() {
+  if (statusResetTimer) clearTimeout(statusResetTimer);
+  statusResetTimer = setTimeout(() => updateRefreshStatus(), 4000);
+}
+
+// Kalıcı durum satırı: "Son kontrol: 20:35 · her 1 dakika"
+async function updateRefreshStatus() {
+  const el = document.getElementById("refresh-status");
+  if (!el) return;
+
+  const lang = await getSavedLang();
+  const data = await chrome.storage.local.get(["lastCheckTime", "checkIntervalMinutes"]);
+  const interval = INTERVAL_OPTIONS.includes(Number(data.checkIntervalMinutes))
+    ? Number(data.checkIntervalMinutes)
+    : DEFAULT_CHECK_INTERVAL;
+
+  let when = t("never", lang);
+  if (typeof data.lastCheckTime === "number" && data.lastCheckTime > 0) {
+    const d = new Date(data.lastCheckTime);
+    const pad = (v) => String(v).padStart(2, "0");
+    when = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  el.classList.remove("success", "error");
+  el.textContent = `${t("last_check", lang)}: ${when} · ${t("interval_minutes", lang).replace("{n}", interval)}`;
+}
+
+// ---- Kontrol sıklığı ayarı ----
+async function setupIntervalSelect() {
+  const select = document.getElementById("interval-select");
+  if (!select) return;
+
+  const lang = await getSavedLang();
+  const data = await chrome.storage.local.get(["checkIntervalMinutes"]);
+  const current = INTERVAL_OPTIONS.includes(Number(data.checkIntervalMinutes))
+    ? Number(data.checkIntervalMinutes)
+    : DEFAULT_CHECK_INTERVAL;
+
+  select.textContent = "";
+  INTERVAL_OPTIONS.forEach((minutes) => {
+    const opt = document.createElement("option");
+    opt.value = String(minutes);
+    opt.textContent = t("interval_minutes", lang).replace("{n}", minutes);
+    if (minutes === current) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  // onchange kullanılıyor: dil değişince fonksiyon tekrar çağrılsa da çoğalan dinleyici olmaz
+  select.onchange = async () => {
+    await chrome.storage.local.set({ checkIntervalMinutes: Number(select.value) });
+    updateRefreshStatus();
+    renderStats();
+  };
+}
+
+// ---- Bildirim sesi ayarı ----
+async function setupSoundSelect() {
+  const select = document.getElementById("sound-select");
+  if (!select) return;
+
+  const lang = await getSavedLang();
+  const data = await chrome.storage.local.get(["notificationSound"]);
+  const current = SOUND_OPTIONS.includes(data.notificationSound) ? data.notificationSound : "system";
+  const labels = { system: "sound_system", chime: "sound_chime", silent: "sound_silent" };
+
+  select.textContent = "";
+  SOUND_OPTIONS.forEach((value) => {
+    const opt = document.createElement("option");
+    opt.value = value;
+    opt.textContent = t(labels[value], lang);
+    if (value === current) opt.selected = true;
+    select.appendChild(opt);
+  });
+
+  select.onchange = async () => {
+    await chrome.storage.local.set({ notificationSound: select.value });
+    // Zil sesi seçilirse kullanıcıya hemen örnek olarak çal
+    if (select.value === "chime") {
+      try {
+        const preview = new Audio(chrome.runtime.getURL("sounds/notify.wav"));
+        preview.volume = 0.85;
+        await preview.play();
+      } catch (e) {
+        console.warn("Zil sesi önizlenemedi:", e);
+      }
+    }
+  };
+}
+
+// ---- İstatistik paneli ----
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function statInfoRow(label, value) {
+  const row = document.createElement("div");
+  row.className = "stat-info-row";
+
+  const labelSpan = document.createElement("span");
+  labelSpan.textContent = label;
+
+  const valueSpan = document.createElement("span");
+  valueSpan.className = "stat-info-value";
+  valueSpan.textContent = value;
+
+  row.appendChild(labelSpan);
+  row.appendChild(valueSpan);
+  return row;
+}
+
+async function renderStats() {
+  const grid = document.querySelector(".stats-grid");
+  if (!grid) return;
+
+  const lang = await getSavedLang();
+  const data = await chrome.storage.local.get([
+    "channels",
+    "mutedChannels",
+    "lastCheckTime",
+    "lastApiErrorCount",
+    "checkIntervalMinutes"
+  ]);
+
+  const channels = data.channels || [];
+  const mutedTracked = (data.mutedChannels || []).filter((c) => channels.includes(c));
+  const liveItems = channelResults.filter((r) => r.data && r.data.livestream !== null);
+  const totalViewers = liveItems.reduce(
+    (acc, r) => acc + (Number(r.data.livestream.viewer_count) || 0),
+    0
+  );
+  const mutedLive = liveItems.filter((r) => mutedTracked.includes(r.name)).length;
+
+  setText("stat-total", formatViewerCount(channels.length, lang));
+  setText("stat-live", formatViewerCount(liveItems.length, lang));
+  setText("stat-viewers", formatViewerCount(totalViewers, lang));
+  setText("stat-muted", formatViewerCount(mutedTracked.length, lang));
+
+  // En çok izlenen canlı yayın
+  const topEl = document.getElementById("stat-top-stream");
+  if (topEl) {
+    topEl.textContent = "";
+    const top = liveItems
+      .slice()
+      .sort(
+        (a, b) =>
+          (Number(b.data.livestream.viewer_count) || 0) - (Number(a.data.livestream.viewer_count) || 0)
+      )[0];
+
+    if (top) {
+      const card = document.createElement("div");
+      card.className = "channel-card";
+
+      const left = document.createElement("div");
+      left.className = "channel-left";
+
+      const avatar = document.createElement("img");
+      avatar.className = "avatar";
+      avatar.src = top.data.user?.profile_pic || "../icon/icon.png";
+      avatar.alt = "";
+      // Yedek görsel de yüklenemezse döngüye girmemesi için tek deneme yapılır
+      avatar.addEventListener("error", () => {
+        if (!avatar.dataset.fallback) {
+          avatar.dataset.fallback = "1";
+          avatar.src = "../icon/icon.png";
+        } else {
+          avatar.remove();
+        }
+      });
+
+      const details = document.createElement("div");
+      details.className = "channel-details";
+
+      const nameLink = document.createElement("a");
+      nameLink.href = `https://kick.com/${top.name}`;
+      nameLink.target = "_blank";
+      nameLink.className = "channel-name";
+      nameLink.textContent = top.data.user?.display_name || top.data.user?.username || top.name;
+
+      const viewers = document.createElement("span");
+      viewers.className = "status live";
+      viewers.textContent = t("viewers_short", lang).replace(
+        "{n}",
+        formatViewerCount(top.data.livestream.viewer_count, lang)
+      );
+
+      details.appendChild(nameLink);
+      details.appendChild(viewers);
+      left.appendChild(avatar);
+      left.appendChild(details);
+      card.appendChild(left);
+      topEl.appendChild(card);
+    } else {
+      const empty = document.createElement("div");
+      empty.className = "empty-msg";
+      empty.textContent = t("stat_none_live", lang);
+      topEl.appendChild(empty);
+    }
+  }
+
+  // Bilgi satırları
+  const infoEl = document.getElementById("stat-info");
+  if (infoEl) {
+    infoEl.textContent = "";
+
+    const interval = INTERVAL_OPTIONS.includes(Number(data.checkIntervalMinutes))
+      ? Number(data.checkIntervalMinutes)
+      : DEFAULT_CHECK_INTERVAL;
+
+    let when = t("never", lang);
+    if (typeof data.lastCheckTime === "number" && data.lastCheckTime > 0) {
+      const d = new Date(data.lastCheckTime);
+      const pad = (v) => String(v).padStart(2, "0");
+      when = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    }
+
+    infoEl.appendChild(statInfoRow(t("stat_last_check", lang), when));
+    infoEl.appendChild(
+      statInfoRow(t("stat_interval", lang), t("interval_minutes", lang).replace("{n}", interval))
+    );
+    infoEl.appendChild(statInfoRow(t("stat_errors", lang), String(data.lastApiErrorCount || 0)));
+    infoEl.appendChild(statInfoRow(t("stat_muted_live", lang), String(mutedLive)));
+  }
+}
+
+// ---- Susturma (mute) ----
+function applyMuteState(btn, card, isMuted, lang) {
+  if (!btn) return;
+  btn.classList.toggle("muted", isMuted);
+  btn.innerHTML = isMuted ? BELL_OFF_ICON : BELL_ICON;
+  btn.title = t(isMuted ? "unmute" : "mute", lang);
+  if (card) card.classList.toggle("muted", isMuted);
+}
+
 async function loadChannels() {
   const container = document.getElementById("channel-list");
   if (!container) return;
 
-  const data = await chrome.storage.local.get(["channels", "pinnedChannels"]);
+  const data = await chrome.storage.local.get(["channels", "pinnedChannels", "mutedChannels"]);
   const channels = data.channels || [];
   const pinnedChannels = data.pinnedChannels || [];
+  mutedChannelsCache = data.mutedChannels || [];
   const lang = await getSavedLang();
 
   container.textContent = "";
@@ -240,6 +561,8 @@ async function loadChannels() {
     container.appendChild(emptyDiv);
     applySearchFilter();
     renderSuggestions();
+    updateRefreshStatus();
+    renderStats();
     return;
   }
 
@@ -277,6 +600,8 @@ async function loadChannels() {
 
   applySearchFilter();
   renderSuggestions();
+  updateRefreshStatus();
+  renderStats();
 }
 
 async function setupSuggestionsToggle() {
@@ -426,13 +751,19 @@ async function addChannel(channelName) {
 }
 
 async function removeChannel(channelName) {
-  const data = await chrome.storage.local.get(["channels", "pinnedChannels"]);
+  const data = await chrome.storage.local.get(["channels", "pinnedChannels", "mutedChannels"]);
   let channels = data.channels || [];
   let pinnedChannels = data.pinnedChannels || [];
+  let mutedChannels = data.mutedChannels || [];
 
   channels = channels.filter((name) => name !== channelName);
   pinnedChannels = pinnedChannels.filter((name) => name !== channelName);
-  await chrome.storage.local.set({ channels: channels, pinnedChannels: pinnedChannels });
+  mutedChannels = mutedChannels.filter((name) => name !== channelName);
+  await chrome.storage.local.set({
+    channels: channels,
+    pinnedChannels: pinnedChannels,
+    mutedChannels: mutedChannels
+  });
   await loadChannels();
   chrome.runtime.sendMessage({ action: "updateBadge" });
 }
@@ -503,7 +834,32 @@ function renderChannelCard(container, item) {
   });
   deleteBtn.addEventListener("click", () => removeChannel(item.name));
 
+  // Susturma butonu: kanal canlıya geçse de bildirim göndermez (listede canlı görünür)
+  const muteBtn = document.createElement("button");
+  muteBtn.className = "mute-btn";
+  muteBtn.type = "button";
+  getSavedLang().then((lang) => {
+    applyMuteState(muteBtn, card, mutedChannelsCache.includes(item.name), lang);
+  });
+
+  muteBtn.addEventListener("click", async () => {
+    const mData = await chrome.storage.local.get(["mutedChannels"]);
+    let mutedList = mData.mutedChannels || [];
+    const isMuted = mutedList.includes(item.name);
+    if (isMuted) {
+      mutedList = mutedList.filter((n) => n !== item.name);
+    } else {
+      mutedList.push(item.name);
+    }
+    await chrome.storage.local.set({ mutedChannels: mutedList });
+    mutedChannelsCache = mutedList;
+    const lang = await getSavedLang();
+    applyMuteState(muteBtn, card, !isMuted, lang);
+    renderStats();
+  });
+
   actionsDiv.appendChild(pinBtn);
+  actionsDiv.appendChild(muteBtn);
   actionsDiv.appendChild(deleteBtn);
 
   pinBtn.addEventListener("click", async () => {
@@ -757,9 +1113,14 @@ function setupBackup() {
         .map((c) => c.trim().toLowerCase().replace(/^@/, ""))
         .filter((c) => c.length > 0);
       const deduped = [...new Set(channels)];
-      const pinData = await chrome.storage.local.get(["pinnedChannels"]);
-      const keptPins = (pinData.pinnedChannels || []).filter((p) => deduped.includes(p));
-      await chrome.storage.local.set({ channels: deduped, pinnedChannels: keptPins });
+      const extraData = await chrome.storage.local.get(["pinnedChannels", "mutedChannels"]);
+      const keptPins = (extraData.pinnedChannels || []).filter((p) => deduped.includes(p));
+      const keptMutes = (extraData.mutedChannels || []).filter((m) => deduped.includes(m));
+      await chrome.storage.local.set({
+        channels: deduped,
+        pinnedChannels: keptPins,
+        mutedChannels: keptMutes
+      });
       showMessage(t("import_success", lang), false);
       await loadChannels();
       chrome.runtime.sendMessage({ action: "updateBadge" });

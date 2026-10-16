@@ -30,24 +30,65 @@ chrome.runtime.onStartup.addListener(() => {
   checkStreamsAndSetBadge();
 });
 
-// Service worker her uyandığında alarmın hala kurulu olduğundan emin ol
-function restoreAlarmGuarantee() {
+// Kontrol sıklığı seçenekleri (dakika)
+const ALLOWED_INTERVALS = [1, 2, 5, 10];
+const DEFAULT_INTERVAL_MINUTES = 1;
+
+// Kaydedilmiş kontrol sıklığını okur; geçersizse varsayılana döner
+async function getCheckInterval() {
   try {
-    chrome.alarms.get("checkLiveStreams", (alarm) => {
-      if (!alarm) {
-        setupAlarm();
-      }
-    });
+    const data = await chrome.storage.local.get(["checkIntervalMinutes"]);
+    const value = Number(data.checkIntervalMinutes);
+    return ALLOWED_INTERVALS.includes(value) ? value : DEFAULT_INTERVAL_MINUTES;
   } catch (e) {
-    console.error("Alarm garantisi kurulamadı:", e);
-    setupAlarm();
+    console.error("Kontrol sıklığı okunamadı:", e);
+    return DEFAULT_INTERVAL_MINUTES;
   }
 }
 
-// Periyodik kontrol için 1 dakikalık alarm oluştur
-function setupAlarm() {
-  chrome.alarms.create("checkLiveStreams", { periodInMinutes: 1 });
+// Alarm durumunu callback tabanlı okur (tüm tarayıcı sürümlerinde güvenli)
+function getAlarm(name) {
+  return new Promise((resolve) => {
+    try {
+      chrome.alarms.get(name, (alarm) => resolve(alarm || null));
+    } catch (e) {
+      resolve(null);
+    }
+  });
 }
+
+// Service worker her uyandığında alarmın hala kurulu ve doğru sıklıkta olduğundan emin ol
+async function restoreAlarmGuarantee() {
+  try {
+    const alarm = await getAlarm("checkLiveStreams");
+    const period = await getCheckInterval();
+    if (!alarm || alarm.periodInMinutes !== period) {
+      await setupAlarm();
+    }
+  } catch (e) {
+    console.error("Alarm garantisi kurulamadı:", e);
+    await setupAlarm();
+  }
+}
+
+// Periyodik kontrol alarmını seçilen sıklıkta oluştur
+async function setupAlarm() {
+  const period = await getCheckInterval();
+  try {
+    await chrome.alarms.clear("checkLiveStreams");
+  } catch (e) {
+    console.warn("Eski alarm temizlenemedi:", e);
+  }
+  chrome.alarms.create("checkLiveStreams", { periodInMinutes: period });
+}
+
+// Ayarlardan kontrol sıklığı değiştirilirse alarmı hemen güncelle
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== "local") return;
+  if (changes.checkIntervalMinutes) {
+    setupAlarm();
+  }
+});
 
 // Alarm tetiklendiğinde otomatik çalış
 chrome.alarms.onAlarm.addListener((alarm) => {
@@ -63,6 +104,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
   if (request.action === "testNotification") {
     sendTestNotification();
+  }
+  // "Şimdi Kontrol Et": kontrolü bekler ve özeti popup'a döndürür
+  if (request.action === "checkNow") {
+    checkStreamsAndSetBadge()
+      .then((summary) => sendResponse(summary || {}))
+      .catch((e) => {
+        console.error("Manuel kontrol hatası:", e);
+        sendResponse({ error: true });
+      });
+    return true; // asenkron yanıt için kanalı açık tut
   }
 });
 
@@ -129,10 +180,12 @@ async function fetchWithRetry(url, attempt = 1) {
 }
 
 async function checkStreamsAndSetBadge() {
+  const checkedAt = Date.now();
   try {
-    const data = await chrome.storage.local.get(["channels", "liveStates", "notificationsEnabled", "notifyStartHour", "notifyEndHour"]);
+    const data = await chrome.storage.local.get(["channels", "liveStates", "notificationsEnabled", "notifyStartHour", "notifyEndHour", "mutedChannels"]);
     const channels = data.channels || [];
     const liveStates = data.liveStates || {};
+    const mutedChannels = data.mutedChannels || [];
     const notificationsEnabled = data.notificationsEnabled !== false;
     const notifyStartHour = typeof data.notifyStartHour === "number" ? data.notifyStartHour : 0;
     const notifyEndHour = typeof data.notifyEndHour === "number" ? data.notifyEndHour : 23;
@@ -142,7 +195,8 @@ async function checkStreamsAndSetBadge() {
 
     if (channels.length === 0) {
       setLiveBadge("");
-      return;
+      await chrome.storage.local.set({ lastCheckTime: checkedAt, lastApiErrorCount: 0 });
+      return { total: 0, live: 0, errors: 0, muted: 0, lastCheckTime: checkedAt };
     }
 
     // İstekleri tek tek beklemek yerine Promise.all ile paralel atıyoruz (Hız artışı sağlar)
@@ -167,9 +221,9 @@ async function checkStreamsAndSetBadge() {
     const results = await Promise.all(requests);
 
     const failureCount = results.filter((r) => !r.ok).length;
-    const update = { lastCheckTime: Date.now(), lastApiErrorCount: failureCount };
+    const update = { lastCheckTime: checkedAt, lastApiErrorCount: failureCount };
     if (failureCount > 0) {
-      update.lastApiErrorTimestamp = Date.now();
+      update.lastApiErrorTimestamp = checkedAt;
     }
     await chrome.storage.local.set(update);
 
@@ -183,9 +237,13 @@ async function checkStreamsAndSetBadge() {
 
       newLiveStates[item.channel] = item.isLive;
 
+      // Susturulmuş kanallar listede canlı görünür ama bildirim göndermez.
+      // Durum yine güncellenir; böylece susturma kaldırıldığında eski bildirim patlamaz.
+      const isMuted = mutedChannels.includes(item.channel);
+
       // Durumlar kapalıyken de güncellenir ki anahtar tekrar açıldığında
       // birikmiş yanlış bildirimler patlamasın
-      if (item.isLive && liveStates[item.channel] === false && notificationsEnabled && inNotifyWindow) {
+      if (item.isLive && liveStates[item.channel] === false && notificationsEnabled && inNotifyWindow && !isMuted) {
         await notifyChannelLive(item.channel, item.result);
       }
     }
@@ -202,8 +260,20 @@ async function checkStreamsAndSetBadge() {
     } else {
       setLiveBadge("");
     }
+
+    const mutedLive = results.filter((r) => r.isLive === true && mutedChannels.includes(r.channel)).length;
+
+    return {
+      total: channels.length,
+      live: liveCount,
+      errors: failureCount,
+      muted: mutedChannels.filter((c) => channels.includes(c)).length,
+      mutedLive: mutedLive,
+      lastCheckTime: checkedAt
+    };
   } catch (error) {
     console.error("Rozet güncelleme hatası:", error);
+    return { error: true, lastCheckTime: checkedAt };
   }
 }
 
@@ -239,6 +309,42 @@ async function getAvatarDataUrl(url) {
   }
 }
 
+// Bildirim sesi tercihleri: "system" (tarayıcı varsayılanı), "chime" (eklenti zili), "silent" (sessiz)
+const SOUND_OPTIONS = ["system", "chime", "silent"];
+
+async function getSoundPreference() {
+  try {
+    const data = await chrome.storage.local.get(["notificationSound"]);
+    return SOUND_OPTIONS.includes(data.notificationSound) ? data.notificationSound : "system";
+  } catch (e) {
+    console.error("Bildirim sesi tercihi okunamadı:", e);
+    return "system";
+  }
+}
+
+// Eklentiye gömülü zil sesini çalar (yalnızca "chime" seçiliyken)
+function playChime() {
+  try {
+    const audio = new Audio(chrome.runtime.getURL("sounds/notify.wav"));
+    audio.volume = 0.85;
+    const played = audio.play();
+    if (played && typeof played.catch === "function") {
+      played.catch((e) => console.warn("Zil sesi çalınamadı:", e?.message || e));
+    }
+  } catch (e) {
+    console.warn("Zil sesi oluşturulamadı:", e);
+  }
+}
+
+// Seçilen ses tercihine göre bildirim seçenekleri üretir
+async function getSoundNotificationOptions() {
+  const sound = await getSoundPreference();
+  if (sound === "system") return {};
+  // Sessiz modda ve zil sesinde sistem sesi kapatılır (zil sesi ayrıca çalınır)
+  if (sound === "chime") playChime();
+  return { silent: true };
+}
+
 // Ayarlar ekranındaki test butonu için örnek bildirim gösterir
 async function sendTestNotification() {
   let iconUrl = "icon/icon.png";
@@ -271,11 +377,13 @@ async function sendTestNotification() {
   }
 
   try {
+    const soundOptions = await getSoundNotificationOptions();
     await chrome.notifications.create(`kick-test-${Date.now()}`, {
       type: "basic",
       iconUrl: iconUrl,
       title: title,
-      message: message
+      message: message,
+      ...soundOptions
     });
   } catch (e) {
     console.error("Test bildirimi gösterilemedi:", e);
@@ -296,11 +404,13 @@ async function notifyChannelLive(channel, result) {
   }
 
   try {
+    const soundOptions = await getSoundNotificationOptions();
     await chrome.notifications.create(`kick-live-${channel}-${Date.now()}`, {
       type: "basic",
       iconUrl: iconUrl,
       title: `${displayName} ${i18n.live_title}`,
-      message: streamTitle
+      message: streamTitle,
+      ...soundOptions
     });
   } catch (e) {
     console.error("Bildirim gösterilemedi:", e);
