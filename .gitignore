@@ -1,0 +1,20 @@
+# Secrets — ASLA commit'lenmez
+.env
+.env.*
+!.env.example
+
+# Node / geliştirme kalıntıları
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+
+# Editörler
+.vscode/
+.idea/
+*.swp
+
+# Paket çıktıları (dağıtım zip'i vb.)
+*.zip
+dist/
+build/
